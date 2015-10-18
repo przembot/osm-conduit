@@ -1,0 +1,97 @@
+{-# LANGUAGE OverloadedStrings #-}
+import Test.Hspec
+import Control.Exception (evaluate)
+import Control.DeepSeq (force)
+import Control.Monad.Catch (MonadThrow)
+import Control.Monad.Trans.Resource (runResourceT)
+
+import Data.Text (Text)
+
+import Text.XML.Stream.Parse hiding (force)
+
+import Data.Conduit
+import qualified Data.Conduit.List as CL
+import Data.Conduit.OSM
+import Data.Conduit.OSM.Types
+
+main :: IO ()
+main = hspec $ do
+  describe "parser success" $ do
+    it "parse node with tags" $ do
+      parsed <- runTest testCase01
+      parsed `shouldBe` [OSM 0.6 (Just "lulz generator") Nothing [Node 52.153 22.341 (NWRCommon "43221" (Just True) Nothing Nothing Nothing [Tag ("shop", "alcohol"), Tag ("area", "safe")])] [] []]
+
+    it "parse way" $ do
+      parsed <- runTest testCase03
+      parsed `shouldBe` [OSM 0.6 (Just "lulz generator") Nothing [] [Way [Nd "1234", Nd "2345", Nd "3456"] (NWRCommon "1995" (Just True) Nothing Nothing Nothing [Tag ("rodzaj drogi", "do ukochanej")]) ] [] ]
+
+    it "parse relation" $ do
+      parsed <- runTest testCase04
+      parsed `shouldBe` [OSM 0.6 (Just "lulz generator") Nothing [] [] [Relation [Member N "1234" Nothing] (NWRCommon "4747" (Just True) Nothing Nothing Nothing [Tag ("testk", "testv")])]]
+
+  describe "parser throws error" $ do
+    it "should throw when reading a double value fails" $ do
+     parsed <- runTest testCase02
+     (evaluate . force) (show parsed) `shouldThrow` errorCall "Prelude.read: no parse"
+
+  describe "reading from file" $ do
+    it "should be able to read using sourceFile" $ do
+      parsed <- runResourceT $ sourceFile "test/readingTest.xml" $$ CL.consume
+      parsed `shouldBe` [OSM 0.6 Nothing Nothing [Node 12.34 34.56 (NWRCommon "1111" Nothing Nothing Nothing Nothing [])] [] []]
+
+  describe "parsing ommiting osm tag" $ do
+    it "getting only nodes using conduitNodes" $ do
+      parsed <- testCase01 $$ parseText' def =$ conduitNodes =$ CL.consume
+      parsed `shouldBe` [Node 52.153 22.341 (NWRCommon "43221" (Just True) Nothing Nothing Nothing [Tag ("shop", "alcohol"), Tag ("area", "safe")])]
+
+runTest :: MonadThrow m => Source m Text -> m [OSM]
+runTest tcase = tcase $$ parseText' def =$ conduitOSM =$ CL.consume
+
+xmlPrefix :: Text
+xmlPrefix = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+
+testCase01 :: Monad m => Source m Text
+testCase01 = CL.sourceList
+        [xmlPrefix
+      , "<osm version=\"0.6\" generator=\"lulz generator\">"
+      , "<node id=\"43221\" lat=\"52.153\" lon=\"22.341\" visible=\"true\">"
+      , "<tag k=\"shop\" v=\"alcohol\" />"
+      , "<tag k=\"area\" v=\"safe\" />"
+      , "</node>"
+      , "</osm>"
+      ]
+
+testCase02 :: Monad m => Source m Text
+testCase02 = CL.sourceList
+        [xmlPrefix
+      , "<osm version=\"0.6\" generator=\"lulz generator\">"
+      , "<node id=\"43221\" lat=\"52.ad153\" lon=\"22.341\" visible=\"true\">"
+      , "<tag k=\"shop\" v=\"alcohol\" />"
+      , "</node>"
+      , "</osm>"
+      ]
+
+testCase03 :: Monad m => Source m Text
+testCase03 = CL.sourceList
+        [xmlPrefix
+      , "<osm version=\"0.6\" generator=\"lulz generator\">"
+      , "<way id=\"1995\" visible=\"true\">"
+      , "<nd ref=\"1234\" />"
+      , "<nd ref=\"2345\" />"
+      , "<nd ref=\"3456\" />"
+      , "<tag k=\"rodzaj drogi\" v=\"do ukochanej\" />"
+      , "</way>"
+      , "</osm>"
+      ]
+
+testCase04 :: Monad m => Source m Text
+testCase04 = CL.sourceList
+        [xmlPrefix
+      , "<osm version=\"0.6\" generator=\"lulz generator\">"
+      , "<relation id=\"4747\" visible=\"true\">"
+      , "<member type=\"node\" ref=\"1234\" />"
+      , "<tag k=\"testk\" v=\"testv\" />"
+      , "</relation>"
+      , "</osm>"
+      ]
+
