@@ -1,8 +1,6 @@
-{-# LANGUAGE TemplateHaskell #-}
 module Data.Conduit.OSM.Types where
 
 import Data.Text       (Text)
-import Control.Lens.TH (makeLenses)
 
 type Version = Double
 type Generator = Text
@@ -94,10 +92,3 @@ data Tag =
   }
   deriving (Show, Eq)
 
-
-makeLenses ''OSM
-makeLenses ''Node
-makeLenses ''Way
-makeLenses ''Relation
-makeLenses ''Tag
-makeLenses ''NWRCommon

@@ -13,11 +13,10 @@ import qualified Data.Conduit.List as CL
 import Data.Conduit.OSM
 import Data.Conduit.OSM.Types
 
-import Control.Lens ((^.))
 import System.Environment (getArgs)
 
 conduitAlko :: MonadThrow m => Conduit Node m Node
-conduitAlko = CL.filter ( any ((== ("shop", "alcohol")) . _tag)  . (^. nCommon . tags))
+conduitAlko = CL.filter ( any ((== ("shop", "alcohol")) . _tag)  . (_tags . _nCommon))
 
 sinkAlko :: (MonadThrow m, MonadIO m) => Sink Node m ()
 sinkAlko = awaitForever $ liftIO . print
