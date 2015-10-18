@@ -38,16 +38,11 @@ parseOSM = tagName "osm" tagParser $ \cont -> cont <$> parseBounds <*> many pars
 parseNode :: MonadThrow m => Consumer Event m (Maybe Node)
 parseNode = tagName "node" tagParser $ \cont -> cont <$> many' parseTag
   where
-    tagParser = (\la lo i vis chset tstamp usr tgs ->
-                    Node la lo (NWRCommon i vis chset tstamp usr tgs))
-                <$> requireAttrRead "lat"
+    tagParser = (\f latitude longitude tagz -> Node latitude longitude (f tagz))
+                <$> nwrCommonParser
+                <*> requireAttrRead "lat"
                 <*> requireAttrRead "lon"
-                <*> requireAttr "id"
-                <*> fmap (>>= readBool) (attr "visible")
-                <*> attr "chageset"
-                <*> attr "timestamp"
-                <*> attr "user"
-                <* ignoreAttrs
+                <*  ignoreAttrs
 
 
 parseWay :: MonadThrow m => Consumer Event m (Maybe Way)
