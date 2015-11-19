@@ -67,7 +67,12 @@ data NWRCommon =
   }
   deriving (Show, Eq)
 
-data NWR = N | W | R
+data NWR = NWRn | NWRw | NWRr
+  deriving (Show, Eq)
+
+data NWRWrap = N Node
+             | W Way
+             | R Relation
   deriving (Show, Eq)
 
 data Member =

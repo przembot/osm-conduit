@@ -1,15 +1,22 @@
 # osm-conduit
 
 ### OSM conduit parsing
-Parse any OSM maps using conduits.
+Parse OSM maps using conduits.
 
-Use `sourceFile`, `conduitOSM` and `conduitNodes` to get your desired data.
+Use any of these to get your desired data.
+```haskell
+sourceFile
+conduitNWR
+conduitNodes
+conduitWays
+conduitRelations
+```
 For types see Data.Conduit.OSM.Types
 
 ### Example usage
 See example.hs, program gets all nodes which have `shop=alcohol` tag.
 
 ### TODO
-- conduitWay
-- conduitRelation
-- conduitNWR
+- purify `fromStr`
+- benchmark
+- profiling

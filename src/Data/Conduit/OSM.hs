@@ -2,8 +2,11 @@
 module Data.Conduit.OSM
   (
     sourceFile
-  , conduitOSM
+  , conduitNWR
   , conduitNodes
+  , conduitWays
+  , conduitRelations
+  , conduitOSM
   )
   where
 
@@ -15,7 +18,7 @@ import Control.Monad.Catch          (MonadThrow)
 import Control.Monad.Trans.Resource (MonadResource)
 import Text.XML.Stream.Parse        (AttrParser, tagName, requireAttr, attr
                                     , ignoreAttrs, many, many', manyYield, manyYield'
-                                    , parseFile, def, force)
+                                    , parseFile, def, force, choose)
 import Data.Conduit.OSM.Types
 
 
@@ -29,10 +32,29 @@ conduitNodes :: MonadThrow m => Conduit Event m Node
 conduitNodes = force "node can't be parsed" $
                   tagName "osm" ignoreAttrs $ \_ -> void $ manyYield' parseNode
 
+conduitWays :: MonadThrow m => Conduit Event m Way
+conduitWays = force "ways can't be parsed" $
+                  tagName "osm" ignoreAttrs $ \_ -> void $ manyYield' parseWay
+
+conduitRelations :: MonadThrow m => Conduit Event m Relation
+conduitRelations = force "relations can't be parsed" $
+                    tagName "osm" ignoreAttrs $ \_ -> void $ manyYield' parseRelation
+
+conduitNWR :: MonadThrow m => Conduit Event m NWRWrap
+conduitNWR = force "cannot parse" $
+                  tagName "osm" ignoreAttrs $ \_ -> void $ manyYield' parseNWR
+
 parseOSM :: MonadThrow m => Consumer Event m (Maybe OSM)
 parseOSM = tagName "osm" tagParser $ \cont -> cont <$> parseBounds <*> many parseNode <*> many parseWay <*> many' parseRelation
   where
     tagParser = OSM <$> requireAttrRead "version" <*> attr "generator" <* ignoreAttrs
+
+
+-- | Wrap nodes, ways and relations
+parseNWR :: MonadThrow m => Consumer Event m (Maybe NWRWrap)
+parseNWR = choose [ fmap (fmap N) $ parseNode
+                  , fmap (fmap W) $ parseWay
+                  , fmap (fmap R) $ parseRelation ]
 
 
 parseNode :: MonadThrow m => Consumer Event m (Maybe Node)
@@ -88,9 +110,9 @@ nwrCommonParser =  NWRCommon <$> requireAttr "id" <*> fmap (>>= readBool) (attr 
 readNWRType :: Text -> NWR
 readNWRType a =
   case toLower a of
-    "node" -> N
-    "relation" -> R
-    "way" -> W
+    "node" -> NWRn
+    "relation" -> NWRr
+    "way" -> NWRw
     _ -> error "unknown type in <member>"
 
 fromStr :: Read a => Text -> a

@@ -27,7 +27,7 @@ main = hspec $ do
 
     it "parse relation" $ do
       parsed <- runTest testCase04
-      parsed `shouldBe` [OSM 0.6 (Just "lulz generator") Nothing [] [] [Relation [Member N "1234" Nothing] (NWRCommon "4747" (Just True) Nothing Nothing Nothing [Tag ("testk", "testv")])]]
+      parsed `shouldBe` [OSM 0.6 (Just "lulz generator") Nothing [] [] [Relation [Member NWRn "1234" Nothing] (NWRCommon "4747" (Just True) Nothing Nothing Nothing [Tag ("testk", "testv")])]]
 
   describe "parser throws error" $ do
     it "should throw when reading a double value fails" $ do
@@ -40,9 +40,26 @@ main = hspec $ do
       parsed `shouldBe` [OSM 0.6 Nothing Nothing [Node 12.34 34.56 (NWRCommon "1111" Nothing Nothing Nothing Nothing [])] [] []]
 
   describe "parsing ommiting osm tag" $ do
-    it "getting only nodes using conduitNodes" $ do
+    it "parse nwr at once" $ do
+      parsed <- testCase05 $$ parseText' def =$ conduitNWR =$ CL.consume
+      parsed `shouldMatchList` [
+        N (Node 52.153 22.341 (NWRCommon "43221" (Just True) Nothing Nothing Nothing [])),
+        W (Way [Nd "12"] (NWRCommon "1337" (Just True) Nothing Nothing Nothing [])),
+        R (Relation [Member NWRn "1234" Nothing] (NWRCommon "4747" (Just True) Nothing Nothing Nothing [Tag ("testk", "testv")]))
+        ]
+
+    it "parse nodes using conduitNodes" $ do
       parsed <- testCase01 $$ parseText' def =$ conduitNodes =$ CL.consume
       parsed `shouldBe` [Node 52.153 22.341 (NWRCommon "43221" (Just True) Nothing Nothing Nothing [Tag ("shop", "alcohol"), Tag ("area", "safe")])]
+
+    it "parse ways using conduitWays" $ do
+      parsed <- testCase03 $$ parseText' def =$ conduitWays =$ CL.consume
+      parsed `shouldBe` [Way [Nd "1234", Nd "2345", Nd "3456"] (NWRCommon "1995" (Just True) Nothing Nothing Nothing [Tag ("rodzaj drogi", "do ukochanej")])]
+
+    it "parse relations using conduitRelations" $ do
+      parsed <- testCase04 $$ parseText' def =$ conduitRelations =$ CL.consume
+      parsed `shouldBe` [Relation [Member NWRn "1234" Nothing] (NWRCommon "4747" (Just True) Nothing Nothing Nothing [Tag ("testk", "testv")])]
+
 
 runTest :: MonadThrow m => Source m Text -> m [OSM]
 runTest tcase = tcase $$ parseText' def =$ conduitOSM =$ CL.consume
@@ -95,3 +112,17 @@ testCase04 = CL.sourceList
       , "</osm>"
       ]
 
+testCase05 :: Monad m => Source m Text
+testCase05 = CL.sourceList
+        [xmlPrefix
+      , "<osm version=\"0.6\" generator=\"lulz generator\">"
+      , "<relation id=\"4747\" visible=\"true\">"
+      , "<member type=\"node\" ref=\"1234\" />"
+      , "<tag k=\"testk\" v=\"testv\" />"
+      , "</relation>"
+      , "<node id=\"43221\" lat=\"52.153\" lon=\"22.341\" visible=\"true\" />"
+      , "<way id=\"1337\" visible=\"true\">"
+      , "<nd ref=\"12\" />"
+      , "</way>"
+      , "</osm>"
+      ]
