@@ -10,8 +10,7 @@ module Data.Conduit.OSM
   )
   where
 
-import Data.Conduit                 (Consumer, Conduit, Source, (=$), awaitForever)
-import Data.Conduit.List as CL
+import Data.Conduit                 (Consumer, Conduit, Source, (=$))
 import Data.Text                    (Text, unpack, toLower)
 import Data.XML.Types               (Event, Name)
 import Control.Monad                (void)
@@ -19,7 +18,7 @@ import Control.Monad.Catch          (MonadThrow)
 import Control.Monad.Trans.Resource (MonadResource)
 import Text.XML.Stream.Parse        (AttrParser, tagName, requireAttr, attr
                                     , ignoreAttrs, many, many', manyYield, manyYield'
-                                    , parseFile, def, force, choose, tagIgnoreAttrs, ignoreTreeName, manyIgnoreYield)
+                                    , parseFile, def, force, choose, tagIgnoreAttrs)
 import Data.Conduit.OSM.Types
 
 

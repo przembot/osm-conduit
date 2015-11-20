@@ -7,6 +7,7 @@ import Control.Monad.Trans.Resource (runResourceT)
 
 import Data.Text (Text)
 
+import Data.XML.Types (Event)
 import Text.XML.Stream.Parse hiding (force)
 
 import Data.Conduit
@@ -18,20 +19,20 @@ main :: IO ()
 main = hspec $ do
   describe "parser success" $ do
     it "parse node with tags" $ do
-      parsed <- runTest testCase01
+      parsed <- runTest testCase01 conduitOSM
       parsed `shouldBe` [OSM 0.6 (Just "lulz generator") Nothing [Node 52.153 22.341 (NWRCommon "43221" (Just True) Nothing Nothing Nothing [Tag ("shop", "alcohol"), Tag ("area", "safe")])] [] []]
 
     it "parse way" $ do
-      parsed <- runTest testCase03
+      parsed <- runTest testCase03 conduitOSM
       parsed `shouldBe` [OSM 0.6 (Just "lulz generator") Nothing [] [Way [Nd "1234", Nd "2345", Nd "3456"] (NWRCommon "1995" (Just True) Nothing Nothing Nothing [Tag ("rodzaj drogi", "do ukochanej")]) ] [] ]
 
     it "parse relation" $ do
-      parsed <- runTest testCase04
+      parsed <- runTest testCase04 conduitOSM
       parsed `shouldBe` [OSM 0.6 (Just "lulz generator") Nothing [] [] [Relation [Member NWRn "1234" Nothing] (NWRCommon "4747" (Just True) Nothing Nothing Nothing [Tag ("testk", "testv")])]]
 
   describe "parser throws error" $ do
     it "should throw when reading a double value fails" $ do
-     parsed <- runTest testCase02
+     parsed <- runTest testCase02 conduitOSM
      (evaluate . force) (show parsed) `shouldThrow` errorCall "Prelude.read: no parse"
 
   describe "reading from file" $ do
@@ -41,7 +42,7 @@ main = hspec $ do
 
   describe "parsing ommiting osm tag" $ do
     it "parse nwr at once" $ do
-      parsed <- testCase05 $$ parseText' def =$ conduitNWR =$ CL.consume
+      parsed <- runTest testCase05 conduitNWR
       parsed `shouldMatchList` [
         N (Node 52.153 22.341 (NWRCommon "43221" (Just True) Nothing Nothing Nothing [])),
         W (Way [Nd "12"] (NWRCommon "1337" (Just True) Nothing Nothing Nothing [])),
@@ -49,26 +50,26 @@ main = hspec $ do
         ]
 
     it "parse nodes using conduitNodes" $ do
-      parsed <- testCase01 $$ parseText' def =$ conduitNodes =$ CL.consume
+      parsed <- runTest testCase01 conduitNodes
       parsed `shouldBe` [Node 52.153 22.341 (NWRCommon "43221" (Just True) Nothing Nothing Nothing [Tag ("shop", "alcohol"), Tag ("area", "safe")])]
 
     it "parse ways using conduitWays" $ do
-      parsed <- testCase03 $$ parseText' def =$ conduitWays =$ CL.consume
+      parsed <- runTest testCase03 conduitWays
       parsed `shouldBe` [Way [Nd "1234", Nd "2345", Nd "3456"] (NWRCommon "1995" (Just True) Nothing Nothing Nothing [Tag ("rodzaj drogi", "do ukochanej")])]
 
     it "parse relations using conduitRelations" $ do
-      parsed <- testCase04 $$ parseText' def =$ conduitRelations =$ CL.consume
+      parsed <- runTest testCase04 conduitRelations
       parsed `shouldBe` [Relation [Member NWRn "1234" Nothing] (NWRCommon "4747" (Just True) Nothing Nothing Nothing [Tag ("testk", "testv")])]
 
     it "parse items from many osm tags" $ do
-      parsed <- testCase06 $$ parseText' def =$ conduitNWR =$ CL.consume
+      parsed <- runTest testCase06 conduitNWR
       parsed `shouldMatchList` [
         N (Node 52 20 (NWRCommon "21" (Just True) Nothing Nothing Nothing [])),
         N (Node 52.153 22.341 (NWRCommon "43221" (Just True) Nothing Nothing Nothing []))
         ]
 
-runTest :: MonadThrow m => Source m Text -> m [OSM]
-runTest tcase = tcase $$ parseText' def =$ conduitOSM =$ CL.consume
+runTest :: MonadThrow m => Source m Text -> Conduit Event m a -> m [a]
+runTest tcase cond = tcase $$ parseText' def =$ cond =$ CL.consume
 
 xmlPrefix :: Text
 xmlPrefix = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
