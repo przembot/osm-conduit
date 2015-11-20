@@ -1,7 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
 import Test.Hspec
-import Control.Exception (evaluate)
-import Control.DeepSeq (force)
 import Control.Monad.Catch (MonadThrow)
 import Control.Monad.Trans.Resource (runResourceT)
 
@@ -32,8 +30,7 @@ main = hspec $ do
 
   describe "parser throws error" $ do
     it "should throw when reading a double value fails" $ do
-     parsed <- runTest testCase02 conduitOSM
-     (evaluate . force) (show parsed) `shouldThrow` errorCall "Prelude.read: no parse"
+     runTest testCase02 conduitOSM `shouldThrow` errorCall "Could not parse attribute value"
 
   describe "reading from file" $ do
     it "should be able to read using sourceFile" $ do

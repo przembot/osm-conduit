@@ -17,6 +17,5 @@ For types see Data.Conduit.OSM.Types
 See example.hs, program gets all nodes which have `shop=alcohol` tag.
 
 ### TODO
-- purify `fromStr`
 - benchmark
 - profiling

@@ -14,8 +14,10 @@ import Data.Conduit                 (Consumer, Conduit, Source, (=$))
 import Data.Text                    (Text, unpack, toLower)
 import Data.XML.Types               (Event, Name)
 import Control.Monad                (void)
-import Control.Monad.Catch          (MonadThrow)
+import Control.Monad.Catch          (MonadThrow, throwM)
 import Control.Monad.Trans.Resource (MonadResource)
+import Control.Exception            (ErrorCall(..))
+import Text.Read                    (readMaybe)
 import Text.XML.Stream.Parse        (AttrParser, tagName, requireAttr, attr
                                     , ignoreAttrs, many, many', manyYield, manyYield'
                                     , parseFile, def, force, choose, tagIgnoreAttrs)
@@ -82,7 +84,7 @@ parseRelation = tagName "relation" (nwrCommonParser <* ignoreAttrs)
 parseMember :: MonadThrow m => Consumer Event m (Maybe Member)
 parseMember = tagName "member" tagParser return
   where
-    tagParser = Member <$> fmap readNWRType (requireAttr "type")
+    tagParser = Member <$> (requireAttr "type" >>= readNWRType)
                        <*> requireAttr "ref"
                        <*> attr "role"
                        <* ignoreAttrs
@@ -109,19 +111,20 @@ nwrCommonParser :: AttrParser ([Tag] -> NWRCommon)
 nwrCommonParser =  NWRCommon <$> requireAttr "id" <*> fmap (>>= readBool) (attr "visible") <*> attr "chageset" <*> attr "timestamp" <*> attr "user"
 
 
-readNWRType :: Text -> NWR
+readNWRType :: Text -> AttrParser NWR
 readNWRType a =
   case toLower a of
-    "node" -> NWRn
-    "relation" -> NWRr
-    "way" -> NWRw
-    _ -> error "unknown type in <member>"
+    "node" -> return NWRn
+    "relation" -> return NWRr
+    "way" -> return NWRw
+    _ -> throwM $ ErrorCall "unknown type in <member>"
 
-fromStr :: Read a => Text -> a
-fromStr = read . unpack
+fromStr :: Read a => Text -> Maybe a
+fromStr = readMaybe . unpack
 
 requireAttrRead :: Read a => Name -> AttrParser a
-requireAttrRead str = fmap fromStr (requireAttr str)
+requireAttrRead str = requireAttr str
+          >>= maybe (throwM $ ErrorCall "Could not parse attribute value") return . fromStr
 
 readBool :: Text -> Maybe Bool
 readBool a
