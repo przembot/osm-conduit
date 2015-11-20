@@ -60,6 +60,12 @@ main = hspec $ do
       parsed <- testCase04 $$ parseText' def =$ conduitRelations =$ CL.consume
       parsed `shouldBe` [Relation [Member NWRn "1234" Nothing] (NWRCommon "4747" (Just True) Nothing Nothing Nothing [Tag ("testk", "testv")])]
 
+    it "parse items from many osm tags" $ do
+      parsed <- testCase06 $$ parseText' def =$ conduitNWR =$ CL.consume
+      parsed `shouldMatchList` [
+        N (Node 52 20 (NWRCommon "21" (Just True) Nothing Nothing Nothing [])),
+        N (Node 52.153 22.341 (NWRCommon "43221" (Just True) Nothing Nothing Nothing []))
+        ]
 
 runTest :: MonadThrow m => Source m Text -> m [OSM]
 runTest tcase = tcase $$ parseText' def =$ conduitOSM =$ CL.consume
@@ -124,5 +130,16 @@ testCase05 = CL.sourceList
       , "<way id=\"1337\" visible=\"true\">"
       , "<nd ref=\"12\" />"
       , "</way>"
+      , "</osm>"
+      ]
+
+testCase06 :: Monad m => Source m Text
+testCase06 = CL.sourceList
+        [xmlPrefix
+      , "<osm version=\"0.6\" generator=\"lulz generator\">"
+      , "<node id=\"21\" lat=\"52\" lon=\"20\" visible=\"true\" />"
+      , "</osm>"
+      , "<osm version=\"0.6\" generator=\"phun generator\">"
+      , "<node id=\"43221\" lat=\"52.153\" lon=\"22.341\" visible=\"true\" />"
       , "</osm>"
       ]

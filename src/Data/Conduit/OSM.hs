@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings, RankNTypes #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Data.Conduit.OSM
   (
     sourceFile
@@ -10,7 +10,8 @@ module Data.Conduit.OSM
   )
   where
 
-import Data.Conduit                 (Consumer, Conduit, Source, (=$))
+import Data.Conduit                 (Consumer, Conduit, Source, (=$), awaitForever)
+import Data.Conduit.List as CL
 import Data.Text                    (Text, unpack, toLower)
 import Data.XML.Types               (Event, Name)
 import Control.Monad                (void)
@@ -18,7 +19,7 @@ import Control.Monad.Catch          (MonadThrow)
 import Control.Monad.Trans.Resource (MonadResource)
 import Text.XML.Stream.Parse        (AttrParser, tagName, requireAttr, attr
                                     , ignoreAttrs, many, many', manyYield, manyYield'
-                                    , parseFile, def, force, choose)
+                                    , parseFile, def, force, choose, tagIgnoreAttrs, ignoreTreeName, manyIgnoreYield)
 import Data.Conduit.OSM.Types
 
 
@@ -41,8 +42,10 @@ conduitRelations = force "relations can't be parsed" $
                     tagName "osm" ignoreAttrs $ \_ -> void $ manyYield' parseRelation
 
 conduitNWR :: MonadThrow m => Conduit Event m NWRWrap
-conduitNWR = force "cannot parse" $
-                  tagName "osm" ignoreAttrs $ \_ -> void $ manyYield' parseNWR
+conduitNWR = loop
+  where
+    parser = tagIgnoreAttrs "osm" $ manyYield' parseNWR
+    loop = parser >>= maybe (return ()) (\_ -> loop)
 
 parseOSM :: MonadThrow m => Consumer Event m (Maybe OSM)
 parseOSM = tagName "osm" tagParser $ \cont -> cont <$> parseBounds <*> many parseNode <*> many parseWay <*> many' parseRelation
