@@ -10,17 +10,16 @@ module Data.Conduit.OSM
   )
   where
 
-import Data.Conduit                 (Consumer, Conduit, Source, (=$))
+import Data.Conduit                 (Consumer, Conduit, Source, ConduitM, (=$))
 import Data.Text                    (Text, unpack, toLower)
 import Data.XML.Types               (Event, Name)
-import Control.Monad                (void)
 import Control.Monad.Catch          (MonadThrow, throwM)
 import Control.Monad.Trans.Resource (MonadResource)
 import Control.Exception            (ErrorCall(..))
 import Text.Read                    (readMaybe)
 import Text.XML.Stream.Parse        (AttrParser, tagName, requireAttr, attr
                                     , ignoreAttrs, many, many', manyYield, manyYield'
-                                    , parseFile, def, force, choose, tagIgnoreAttrs)
+                                    , parseFile, def, choose, tagIgnoreAttrs)
 import Data.Conduit.OSM.Types
 
 
@@ -31,22 +30,22 @@ conduitOSM :: MonadThrow m => Conduit Event m OSM
 conduitOSM = manyYield parseOSM
 
 conduitNodes :: MonadThrow m => Conduit Event m Node
-conduitNodes = force "node can't be parsed" $
-                  tagName "osm" ignoreAttrs $ \_ -> void $ manyYield' parseNode
+conduitNodes = loopConduit $ tagIgnoreAttrs "osm" $ manyYield' parseNode
 
 conduitWays :: MonadThrow m => Conduit Event m Way
-conduitWays = force "ways can't be parsed" $
-                  tagName "osm" ignoreAttrs $ \_ -> void $ manyYield' parseWay
+conduitWays = loopConduit $ tagIgnoreAttrs "osm" $ manyYield' parseWay
 
 conduitRelations :: MonadThrow m => Conduit Event m Relation
-conduitRelations = force "relations can't be parsed" $
-                    tagName "osm" ignoreAttrs $ \_ -> void $ manyYield' parseRelation
+conduitRelations = loopConduit $ tagIgnoreAttrs "osm" $ manyYield' parseRelation
 
 conduitNWR :: MonadThrow m => Conduit Event m NWRWrap
-conduitNWR = loop
+conduitNWR = loopConduit $ tagIgnoreAttrs "osm" $ manyYield' parseNWR
+
+-- | Keep sending output when parser can still parse anything remaining
+loopConduit :: Monad m => ConduitM i o m (Maybe ()) -> Conduit i m o
+loopConduit cond = loop
   where
-    parser = tagIgnoreAttrs "osm" $ manyYield' parseNWR
-    loop = parser >>= maybe (return ()) (\_ -> loop)
+    loop = cond >>= maybe (return ()) (const loop)
 
 parseOSM :: MonadThrow m => Consumer Event m (Maybe OSM)
 parseOSM = tagName "osm" tagParser $ \cont -> cont <$> parseBounds <*> many parseNode <*> many parseWay <*> many' parseRelation
@@ -56,9 +55,9 @@ parseOSM = tagName "osm" tagParser $ \cont -> cont <$> parseBounds <*> many pars
 
 -- | Wrap nodes, ways and relations
 parseNWR :: MonadThrow m => Consumer Event m (Maybe NWRWrap)
-parseNWR = choose [ fmap (fmap N) $ parseNode
-                  , fmap (fmap W) $ parseWay
-                  , fmap (fmap R) $ parseRelation ]
+parseNWR = choose [ fmap N <$> parseNode
+                  , fmap W <$> parseWay
+                  , fmap R <$> parseRelation ]
 
 
 parseNode :: MonadThrow m => Consumer Event m (Maybe Node)
@@ -108,8 +107,11 @@ parseBounds = tagName "bounds" tagParser return
                        <*> requireAttrRead "maxlon"
 
 nwrCommonParser :: AttrParser ([Tag] -> NWRCommon)
-nwrCommonParser =  NWRCommon <$> requireAttr "id" <*> fmap (>>= readBool) (attr "visible") <*> attr "chageset" <*> attr "timestamp" <*> attr "user"
-
+nwrCommonParser =  NWRCommon <$> requireAttr "id"
+                             <*> fmap (>>= readBool) (attr "visible")
+                             <*> attr "chageset"
+                             <*> attr "timestamp"
+                             <*> attr "user"
 
 readNWRType :: Text -> AttrParser NWR
 readNWRType a =
