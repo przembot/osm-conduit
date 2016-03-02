@@ -1,7 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
+-- |
+-- Available conduit combinators to process data from *.osm file.
+-- For the best performance, use any of conduitNodes/Ways/Relations/NWR.
+-- Example:
+--
+-- > import qualified Data.Conduit.List as CL
+-- > import Text.XML.Stream.Parse (parseFile, def)
+-- > printNodes filepath = parseFile def filepath =$ conduitNodes $$ CL.mapM_ print
+--
+
 module Data.Conduit.OSM
   (
-    sourceFile
+    sourceFileOSM
   , conduitNWR
   , conduitNodes
   , conduitWays
@@ -23,8 +33,9 @@ import Text.XML.Stream.Parse        (AttrParser, tagName, requireAttr, attr
 import Data.Conduit.OSM.Types
 
 
-sourceFile :: MonadResource m => FilePath -> Source m OSM
-sourceFile path = parseFile def path =$ conduitOSM
+
+sourceFileOSM :: MonadResource m => FilePath -> Source m OSM
+sourceFileOSM path = parseFile def path =$ conduitOSM
 
 conduitOSM :: MonadThrow m => Conduit Event m OSM
 conduitOSM = manyYield parseOSM
@@ -41,7 +52,7 @@ conduitRelations = loopConduit $ tagIgnoreAttrs "osm" $ manyYield' parseRelation
 conduitNWR :: MonadThrow m => Conduit Event m NWRWrap
 conduitNWR = loopConduit $ tagIgnoreAttrs "osm" $ manyYield' parseNWR
 
--- | Keep sending output when parser can still parse anything remaining
+-- | Keep yielding output if parser can still parse anything remaining
 loopConduit :: Monad m => ConduitM i o m (Maybe ()) -> Conduit i m o
 loopConduit cond = loop
   where
@@ -107,7 +118,7 @@ parseBounds = tagName "bounds" tagParser return
                        <*> requireAttrRead "maxlon"
 
 nwrCommonParser :: AttrParser ([Tag] -> NWRCommon)
-nwrCommonParser =  NWRCommon <$> requireAttr "id"
+nwrCommonParser = NWRCommon <$> requireAttr "id"
                              <*> fmap (>>= readBool) (attr "visible")
                              <*> attr "chageset"
                              <*> attr "timestamp"

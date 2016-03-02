@@ -33,8 +33,8 @@ main = hspec $ do
      runTest testCase02 conduitOSM `shouldThrow` errorCall "Could not parse attribute value"
 
   describe "reading from file" $ do
-    it "should be able to read using sourceFile" $ do
-      parsed <- runResourceT $ sourceFile "test/readingTest.xml" $$ CL.consume
+    it "should be able to read using sourceFileOSM" $ do
+      parsed <- runResourceT $ sourceFileOSM "test/readingTest.xml" $$ CL.consume
       parsed `shouldBe` [OSM 0.6 Nothing Nothing [Node 12.34 34.56 (NWRCommon "1111" Nothing Nothing Nothing Nothing [])] [] []]
 
   describe "parsing ommiting osm tag" $ do

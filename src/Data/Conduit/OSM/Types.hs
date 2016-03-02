@@ -1,6 +1,10 @@
+-- |
+-- The following data types correspond to documentation of API version 0.6.
+-- See https://wiki.openstreetmap.org/wiki/API_v0.6/DTD
 module Data.Conduit.OSM.Types where
 
-import Data.Text       (Text)
+import Data.Text (Text)
+
 
 type Version = Double
 type Generator = Text
